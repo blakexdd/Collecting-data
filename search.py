@@ -1,3 +1,5 @@
+# %%
+
 # !/usr/bin/env python
 # coding: utf-8
 
@@ -71,10 +73,12 @@ for page_number in range(2):
                     jobs_content.append(page_content)
                 else:
                     print("Something wrong with the page: ", job_page.status_code)
+                    print('vacancy problem')
         else:
             print('No items in vacancies_list')
     else:
         print('Something wrong with page: ', page.status_code)
+        print('GEneral page problem')
 
 # initializing list with all data about vacancies
 data_list = []
@@ -266,11 +270,14 @@ for page in range(1, 13):
                     courses_skills.append(acquired_skilles)
                 else:
                     print("Something wrong with page: ", course_page.status_code)
+                    courses_skills.append(None)
+                    print('Single cource problem')
 
         else:
             print('No items in courses_list')
     else:
         print('Something wrong with page: ', page.status_code)
+        print('General cource problem')
 
 # initializing list of cleaned courses skilles
 new_courses_skilles = []
@@ -280,7 +287,7 @@ new_courses_skilles = []
 for course in courses_skills:
     # checking if something in courses list
     # and if so, getting it
-    if len(course) > 0:
+    if course != None and len(course) > 0:
         # initializing list with skills
         # for current cource
         temp_skilles = []
@@ -308,6 +315,7 @@ cources_data = pd.DataFrame({'skilles': new_courses_skilles, 'links': courses_li
 
 # getting data where skills are not null
 cources_data_without_nones = cources_data[cources_data['skilles'].notnull()]
+
 
 # initializing list for new requerments
 new_requerments = []
@@ -357,13 +365,187 @@ for req in new_requerments:
     # adding splitted items to updated requerments list
     update_requerments.append(temp)
 
+update_requerments
+
 # updating vacancies list with cleaned requerments
 web_data_with_full_req['cleaned requerments'] = update_requerments
 
-# showing DataFrames
 web_data_with_full_req
 
 cources_data_without_nones
 
+# initializing list for web development key words
+web_development_keywords = []
 
+# going through requerments and forming keywords list
+for cource_reqs in web_data_with_full_req['cleaned requerments']:
+    for req in cource_reqs:
+        for i in req:
+            web_development_keywords.append(i)
 
+# going through skilles and forming keywords list
+for cource_skilles in cources_data_without_nones['skilles']:
+    for skill in cource_skilles:
+        temp_words = skill.split()
+        for i in temp_words:
+            web_development_keywords.append(i)
+
+# initializing list for cleaned key words
+new_web_development_keywords = []
+
+# cleaning key words
+for word in web_development_keywords:
+    new_word = re.sub('\(', '', word)
+    clered_word = re.sub('\)', '', new_word)
+    clered_word = re.sub('[\+]+', '', clered_word)
+    new_web_development_keywords.append(clered_word)
+
+new_web_development_keywords
+
+def get_cources(vacancy_link):
+    # getting vacancy page
+    job_page = requests.get(vacancy_link, headers={'User-Agent': 'Custom'})
+
+    # checking if page is ready to
+    # bring us some data, else getting error code
+    if job_page.status_code == 200:
+        # parsing vacancy page using Beautiful Soup
+        job_soup = BeautifulSoup(job_page.text, 'html.parser')
+
+        # getting vacancy page content
+        page_content = job_soup.find('div', {'class': 'g-user-content'})
+
+        # getting splitted page content
+        splitted_page_content = re.split('<strong>', str(page_content).lower())
+
+        # initializing flags witch note if
+        # requerments in split
+        treb_flag = False
+
+        # initializing jobs requerments list
+        job_requerments = []
+
+        # checking if requerments in the list
+        for job_content in splitted_page_content:
+            if job_content.startswith('требования'):
+                job_requerments.append(job_content)
+                treb_flag = True
+
+        # if requerments in vacancy, we simply get them
+        # and find suitable cources
+        if treb_flag != False:
+            print('YES')
+            item = re.sub('требования', '', job_requerments[0])
+            item2 = re.sub('к кандидату', '', item)
+            item3 = re.sub('к кандидатам', '', item2)
+
+            # splitting by html tags
+            splited_items = re.split(r'<.*?>', item3)
+
+            # initializing list with clean items
+            cleared_items = []
+
+            # going through splitted items, cleaning
+            # them and adding to cleared items list
+            for item in splited_items:
+                cleared_items.append(re.sub(r'[^\w\d\s]+', '', re.sub(r'\s+', ' ', re.sub(r'<.*?>', '', item))))
+
+            # deleating all empty items
+            while ("" in cleared_items):
+                cleared_items.remove("")
+
+            # deleating all space items
+            while (" " in cleared_items):
+                cleared_items.remove(" ")
+
+            print(cleared_items)
+
+            # initializing list for new requerments
+            new_req = []
+
+            # initializing temproary requerments list
+            temp_req = []
+
+            # going through single requerment and cleaning it
+            for string in cleared_items:
+                # cleaning requerments
+                new_string = re.sub(r'[1-9]+', '', re.sub('ё', '', re.sub(r'\s+', ' ', re.sub(r'[а-я]+', '', string))))
+                new_s = re.sub(r'\s+', ' ', new_string)
+
+                # adding single requerment to temproary lsit
+                temp_req.append(new_s)
+
+            # adding temproary requerments list to
+            # new requerments list
+            new_req.append(temp_req)
+
+            # deleating all space items
+            for item in new_req:
+                while (" " in item):
+                    item.remove(" ")
+
+            # initializing list with cleared requrments
+            cleared_reqs = []
+
+            for i in new_req[0]:
+                temp_item = i.split()
+                for j in temp_item:
+                    cleared_reqs.append(j)
+
+            print(cleared_reqs)
+
+            # initializing cources list
+            cources_list = []
+
+            # going through requerments and finding cources
+            for req in cleared_reqs:
+                for (cources_skilles, link) in \
+                        zip(cources_data_without_nones['skilles'], cources_data_without_nones['links']):
+                    if re.search(req, (''.join(cources_skilles)).lower()):
+                        cources_list.append(link)
+
+            return cources_list
+
+        else:
+            print('No requerments')
+            # clearing vacancy data
+            cleared_content = re.sub(r'[^\w\d\s]+', '',
+                                     re.sub(r'\s+', ' ', re.sub(r'<.*?>', '', str(splitted_page_content))))
+
+            # key words set
+            key_words = set()
+
+            # getting possibles requerments
+            for word in new_web_development_keywords:
+                if re.search(word, cleared_content):
+                    if len(word) < 3:
+                        continue
+                    else:
+                        key_words.add(word)
+
+            print(key_words)
+
+            # initializing cources list
+            cources_list = []
+
+            # going through requerments and finding cources
+            for req in key_words:
+                for (cources_skilles, link) in \
+                        zip(cources_data_without_nones['skilles'], cources_data_without_nones['links']):
+                    if re.search(req, (''.join(cources_skilles)).lower()):
+                        cources_list.append(link)
+
+            return cources_list
+    else:
+        print("Something wrong with the page: ", job_page.status_code)
+        print('vacancy problem')
+
+links = get_cources(
+    'https://spb.hh.ru/vacancy/35471010?query=%D0%B2%D0%B5%D0%B1%20%D1%80%D0%B0%D0%B7%D1%80%D0%B0%D0%B1%D0%BE%D1%82%D1%87%D0%B8%D0%BA')
+
+links
+
+links2 = get_cources(
+    'https://spb.hh.ru/vacancy/35564260?query=%D0%B2%D0%B5%D0%B1%20%D1%80%D0%B0%D0%B7%D1%80%D0%B0%D0%B1%D0%BE%D1%82%D1%87%D0%B8%D0%BA')
+
+links2
