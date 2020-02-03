@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+# !/usr/bin/env python
 # coding: utf-8
 
 import requests
@@ -11,6 +11,7 @@ import re
 jobs_content = []  # list with page content about job
 jobs_names = []  # list with names of the jobs
 jobs_links = []  # list with links to the job page
+all_jobs_links = []  # list of all jobs links
 
 # job we want to take
 job = 'Веб-разработчик'
@@ -24,6 +25,9 @@ for page_number in range(2):
 
     # getting current hh.ru page with our job
     page = requests.get(jobs_page, headers={'User-Agent': 'Custom'})
+
+    # clearing jobs links list
+    jobs_links.clear()
 
     # cheking if page is ready to
     # bring us some data, else getting error code
@@ -42,7 +46,12 @@ for page_number in range(2):
             # collecting links and names of vacancies
             for vacancy in vacancies_list:
                 jobs_names.append(vacancy.text)
-                jobs_links.append(vacancy['href'])
+                if vacancy['href']:
+                    jobs_links.append(vacancy['href'])
+                    all_jobs_links.append(vacancy['href'])
+                else:
+                    print('No job link')
+                    jobs_links.append(None)
 
             # getting page content for each vacancy
             for link in jobs_links:
@@ -201,11 +210,12 @@ for desc in jobs_desc:
 
 # forming DataFrame from retrieved data
 web_data = pd.DataFrame({'description': new_jobs_desc, 'requerments': new_jobs_treb, 'conditions': new_jobs_usl,
-                         'responsibilities': new_jobs_obyaz})
+                         'responsibilities': new_jobs_obyaz, 'links': all_jobs_links})
 
 # initializing lists of courses information
 courses_links = []  # list of courses links
 courses_skills = []  # list of courses skills
+page_links = []  # links to cources on current page
 
 # going through all pages of current job we want to take
 # and getting information about skilles we want to aquire
@@ -230,13 +240,17 @@ for page in range(1, 13):
         # the page and if so, adding links to links list
         # getting course page and retrieving skilles
         if len(courses_list) > 0:
+            # clearing page links list
+            page_links.clear()
+
             # going through courses and forming links
             for course in courses_list:
                 # adding links to links list
                 courses_links.append('https://www.coursera.org' + course['href'])
+                page_links.append('https://www.coursera.org' + course['href'])
 
             # going through links and getting pages and skilles
-            for link in courses_links:
+            for link in page_links:
                 # getting course page
                 course_page = requests.get(link, headers={'User-Agent': 'Custom'})
 
@@ -250,7 +264,6 @@ for page in range(1, 13):
                     acquired_skilles = course_soup.find_all('div', {'class': 'Skills border-a p-x-2 p-t-1 p-b-2 m-y-2'})
                     # adding skilles to skilles list
                     courses_skills.append(acquired_skilles)
-                    print('=========')
                 else:
                     print("Something wrong with page: ", course_page.status_code)
 
@@ -281,6 +294,76 @@ for course in courses_skills:
     else:
         new_courses_skilles.append(None)
 
+# getting data where requerments are not null
+web_data_with_full_req = web_data[web_data['requerments'].notnull()]
+
+# setting to display all records in jupyter notebook
+# with a scrollbar
+pd.set_option('display.max_columns', 150)
+pd.set_option('display.width', 1000)
+web_data_with_full_req
+
+# forming cources data with skilles and link to cources
+cources_data = pd.DataFrame({'skilles': new_courses_skilles, 'links': courses_links})
+
+# getting data where skills are not null
+cources_data_without_nones = cources_data[cources_data['skilles'].notnull()]
+
+# initializing list for new requerments
+new_requerments = []
+
+# going through old requerments and extracting
+# only valuable information
+for req in web_data_with_full_req['requerments']:
+    # initializing temproary requerments list
+    temp_req = []
+
+    # going through single requerment and cleaning it
+    for string in req:
+        # cleaning requerments
+        new_string = re.sub(r'[1-9]+', '', re.sub('ё', '', re.sub(r'\s+', ' ', re.sub(r'[а-я]+', '', string))))
+        new_s = re.sub(r'\s+', ' ', new_string)
+
+        # adding single requerment to temproary lsit
+        temp_req.append(new_s)
+
+    # adding temproary requerments list to
+    # new requerments list
+    new_requerments.append(temp_req)
+
+# deleating all space items
+for item in new_requerments:
+    while (" " in item):
+        item.remove(" ")
+
+# initializing requerments list
+# where all key words are splitted
+update_requerments = []
+
+# going through all requerments and
+# splitting them by space
+for req in new_requerments:
+    # initializing temproary list for single string
+    temp = []
+
+    # going through single string and splitting it
+    # by space
+    for i in req:
+        splited_req = i.split()
+
+        # adding splitted requerments to temp list
+        temp.append(splited_req)
+
+    # adding splitted items to updated requerments list
+    update_requerments.append(temp)
+
+# updating vacancies list with cleaned requerments
+web_data_with_full_req['cleaned requerments'] = update_requerments
+
+# showing DataFrames
+web_data_with_full_req
+
+cources_data_without_nones
 
 
 
